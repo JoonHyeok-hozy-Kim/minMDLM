@@ -6,3 +6,8 @@
 ```bash
 pip install torch transformers datasets wandb tqdm
 ```
+
+### Run
+```bash
+python -m main
+```
