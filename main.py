@@ -7,30 +7,35 @@ from tqdm import tqdm
 from dit import DiT_Llama
 from mdlm import MDLM
 
+# Hyperparameters for training
+BATCH_SIZE = 4
+NUM_EPOCHS = 4
+STEPS_PER_EPOCH = 10
+LEARNING_RATE = 5e-4
+MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
+
 if __name__ == "__main__":    
-    # Get Datset    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Get tokenizer
     MODEL_NAME = 'bert-base-uncased'
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)   # BERT tokenizer (Need [MASK] token!)
     
-    N_VALIDATION_SAMPLES = 10_000 # Validation set size
+    # Load dataset
     dataset = load_dataset("wikimedia/wikipedia", "20231101.en", streaming=True)
     chunk_data = dataset["train"].shuffle(buffer_size=10_000, seed=42)
     data_set_name = chunk_data.info.dataset_name
 
     # Split data
+    N_VALIDATION_SAMPLES = 10_000 # Validation set size
     validation_data = chunk_data.take(N_VALIDATION_SAMPLES)
     train_data = chunk_data.skip(N_VALIDATION_SAMPLES)
     print(f"Train Dataset : {train_data}")
     print(f"Validation Dataset : {validation_data}")
 
-
-    # Hyperparameters for training
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    BATCH_SIZE = 4
-    NUM_EPOCHS = 4
-    STEPS_PER_EPOCH = 10
-    LEARNING_RATE = 5e-4
-    MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
+    # Generate train data iterator for the training.
+    train_iterator = train_data.iter(batch_size=BATCH_SIZE)
+    validation_iterator = validation_data.iter(batch_size=BATCH_SIZE)
 
     # Instantiate models, optimizer, and loss
     model = DiT_Llama(
@@ -42,10 +47,6 @@ if __name__ == "__main__":
     ).to(device)
     mdlm = MDLM(model, tokenizer).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-    # Generate train data iterator for the training.
-    train_iterator = train_data.iter(batch_size=BATCH_SIZE)
-    validation_iterator = validation_data.iter(batch_size=BATCH_SIZE)
 
     # Loggin on wandb
     wandb.init(
