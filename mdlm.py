@@ -26,18 +26,10 @@ class MDLM(nn.Module):
     z_t, diffusion_mask, alpha_t = self.add_noise(x, t, attention_mask, self._cosine_schedule)
     
     # Get loss weight : alpha_t_prime / (1-alpha_t)
-    t.requires_grad_(True)
-    alpha_t_prime = torch.autograd.grad(
-      outputs=alpha_t,
-      inputs=t,
-      grad_outputs=torch.ones_like(alpha_t, device=x.device),
-      create_graph=False,
-      retain_graph=False,
-    )[0]
-    t.requires_grad_(False)
-    one_minus_alpha_t = 1 - alpha_t.detach()
+    alpha_t_prime = None
+    one_minus_alpha_t = 1 - alpha_t
     one_minus_alpha_t = torch.clamp(one_minus_alpha_t, min=1e-9)  # Avoid zero-division
-    loss_weight = alpha_t_prime.detach() / one_minus_alpha_t
+    loss_weight = alpha_t_prime / one_minus_alpha_t
 
     # Get x_theta
     x_theta = self.model(z_t, t, attention_mask)
@@ -49,9 +41,12 @@ class MDLM(nn.Module):
     targets[~diffusion_mask] = self.tokenizer.pad_token_id
     targets_flat = targets.view(-1) # (batch_size*max_seq_len, )
     loss_per_token = self.loss_function(logits_flat, targets_flat)
-    loss_per_sample = loss_per_token.view(batch_size, seq_len).sum(dim=1)  # (batch_size, )    
+    loss_per_sample = loss_per_token.view(batch_size, seq_len).sum(dim=1)  # (batch_size, )  
+    batchwise_loss = (loss_weight * loss_per_sample).mean()
+    print(batchwise_loss.shape)
 
-    return (loss_weight * loss_per_sample).mean()
+    return batchwise_loss
+  
 
   def _cosine_schedule(self, t):
     # assert 0 <= t <= 1

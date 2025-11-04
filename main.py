@@ -48,17 +48,17 @@ if __name__ == "__main__":
     mdlm = MDLM(model, tokenizer).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # Loggin on wandb
-    wandb.init(
-        project=f"min_mdlm_{data_set_name}",
-        config={
-            "learning_rate": LEARNING_RATE,
-            "architecture": "DiT_Llama",
-            "dataset": data_set_name,
-            "epochs": NUM_EPOCHS,
-            "batch_size": BATCH_SIZE,
-        }
-    )
+    # # Loggin on wandb
+    # wandb.init(
+    #     project=f"min_mdlm_{data_set_name}",
+    #     config={
+    #         "learning_rate": LEARNING_RATE,
+    #         "architecture": "DiT_Llama",
+    #         "dataset": data_set_name,
+    #         "epochs": NUM_EPOCHS,
+    #         "batch_size": BATCH_SIZE,
+    #     }
+    # )
 
     print(f"Start training: Total {NUM_EPOCHS} epochs, {STEPS_PER_EPOCH} steps per epoch")
     for epoch in range(NUM_EPOCHS):
@@ -104,13 +104,13 @@ if __name__ == "__main__":
             optimizer.step()
             # pbar.set_description(f"CE Loss: {ce_loss.item():.4f}")
 
-            wandb.log({"train_step_ce_loss": ce_loss.item()})
+            # wandb.log({"train_step_ce_loss": ce_loss.item()})
             total_train_loss += ce_loss.item()
             pbar_train.set_description(f"Avg Train Loss: {total_train_loss / (step+1):.4f}")
 
         avg_epoch_train_loss = total_train_loss / (step+1)
         print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} training ends : {avg_epoch_train_loss:.4f}")
-        wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})
+        # wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})
 
         # Validation
         print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation begins.")
@@ -150,8 +150,8 @@ if __name__ == "__main__":
 
             avg_epoch_val_loss = total_val_loss / (val_step+1)
             print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation ends : {avg_epoch_val_loss:.4f}")
-            wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
+            # wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
 
 
     print(f"End of the training: Total {NUM_EPOCHS} epochs.")
-    wandb.finish()
+    # wandb.finish()
