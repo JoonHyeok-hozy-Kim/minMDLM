@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.functional as F
 import math
+from tqdm import tqdm
 
 class MDLM(nn.Module):
   def __init__(
@@ -78,5 +80,69 @@ class MDLM(nn.Module):
     return alpha_t, loss_weight
 
   @torch.no_grad()
-  def sample(self, z):
-    pass
+  def sample(self, num_samples, steps, device='cuda'):
+    # Generate sequence(s) of mask tokens
+    z_t = torch.full(
+      (num_samples, self.model.max_seq_len),
+      self.tokenizer.mask_token_id,   # Fill with [MASK] tokens
+      dtype=torch.long, device=device
+    )
+    
+    # Generate time step schedule
+    time_steps = torch.linspace(1.0, 0.0, steps+1, device=device)
+      
+    # One-hot encoding of mask tokens (i.e. 1 only at mask_token_id index, 0 elsewhere)
+    m_one_hot = F.one_hot(
+      torch.tensor(self.tokenizer.mask_token_id, device=device),
+      num_classes=self.tokenizer.vocab_size,
+    ).to(dtype=torch.float32)  # (vocab_size, )
+    m_one_hot = m_one_hot.view(1,1,-1)  # (1, 1, vocab_size)
+    
+    # Sampling loop
+    for i in tqdm(range(steps)):
+      # Distinguish masked and unmasked tokens
+      is_mask = (z_t == self.tokenizer.mask_token_id)  # m (num_samples, max_seq_len)      
+      if not is_mask.any():   # If no masked tokens remain, break loop.
+        break      
+      
+      # Time Steps : 0 < s < t < 1
+      t_curr_vec = torch.full((num_samples,), time_steps[i], device=device)   # t
+      t_prev_vec = torch.full((num_samples,), time_steps[i+1], device=device) # s
+      
+      # Get the logits from the model and calculate proabilities
+      x_theta_logit = self.model(z_t, t_curr_vec, attention_mask=None)  # (num_samples, max_seq_len, vocab_size)
+      x_theta_probs = F.softmax(x_theta_logit, dim=-1)  # (num_samples, max_seq_len, vocab_size)
+      
+      # Get weights
+      alpha_t, _ = self.get_weights(t_curr_vec, noise_schedule="cosine")  # (num_samples, )
+      alpha_s, _ = self.get_weights(t_prev_vec, noise_schedule="cosine")  # (num_samples, )
+      # Broadcast to match dim with z_t
+      alpha_t, alpha_s = alpha_t.view(-1,1,1), alpha_s.view(-1,1,1)  # (num_samples, 1, 1)
+      
+      # Calculate the backward Categorical distribution for masked tokens
+      term_m = (1-alpha_s) * m_one_hot  # (num_samples, 1, vocab_size)
+      term_x_theta = (alpha_s - alpha_t) * x_theta_probs  # (num_samples, max_seq_len, vocab_size)
+      denominator = torch.clamp(1-alpha_t, min=1e-9)  # Avoid zero-division
+      prob_unmask = (term_m + term_x_theta) / denominator  # (num_samples, max_seq_len, vocab_size)
+      
+      # Flatten to index the masked tokens only
+      is_mask_flat = is_mask.view(-1) # (num_samples*max_seq_len, )
+      prob_unmask_flat = prob_unmask.view(-1, self.tokenizer.vocab_size)  # (num_samples*max_seq_len, vocab_size)
+      prob_unmask_target = prob_unmask_flat[is_mask_flat]  # (<number of unmasked tokens>, vocab_size)
+      
+      # Sample from the Categorical distribution
+      sample_tokens = torch.multinomial(
+        prob_unmask_target,
+        num_samples=1,
+      ).squeeze(-1)  # (<number of unmasked tokens>, )
+      
+      
+      # Create z_s : For already unmasked tokens, keep the same. Update only the masked tonkens.
+      z_s = torch.clone(z_t)
+      z_s_flat = z_s.view(-1)  # (num_samples*max_seq_len, )
+      z_s_flat[is_mask_flat] = sample_tokens
+      
+      # Update z_t 
+      z_t = z_s.view(num_samples, self.model.max_seq_len)  # (num_samples, max_seq_len)
+    
+    return z_t
