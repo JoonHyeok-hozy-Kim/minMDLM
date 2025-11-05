@@ -5,7 +5,10 @@
 - [x] Implement DiT-Llama backbone
 - [ ] Implement MDLM model
     - [x] Training
+        - [x] $`\alpha_t'`$ weight implementation
     - [ ] Sampling
+        - [x] `mdlm.sample` implementation
+        - [ ] main loop sampling logic implementation
 - [ ] Test
     - [ ] Wikipedia dataset generation test
     - [ ] Sudoku problem sovling test
