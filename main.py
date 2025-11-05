@@ -6,14 +6,21 @@ import wandb
 from tqdm import tqdm
 from dit import DiT_Llama
 from mdlm import MDLM
+import os
+from datetime import datetime
 
 # Hyperparameters for training
 BATCH_SIZE = 4
-NUM_EPOCHS = 4
+NUM_EPOCHS = 10
 STEPS_PER_EPOCH = 10
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
-WANDB_LOG = True
+WANDB_LOG = False
+
+# Hyperparemeters for sampling
+NUM_SAMPLES = 5
+SAMPLING_STEPS = 100
+SAVE_SAMPLE_AS_FILE = True
 
 if __name__ == "__main__":    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -60,7 +67,19 @@ if __name__ == "__main__":
                 "epochs": NUM_EPOCHS,
                 "batch_size": BATCH_SIZE,
             }
-        )
+        )            
+    
+    # Setup for saving samples
+    if SAVE_SAMPLE_AS_FILE:
+        samples_dir = "samples"
+        os.makedirs(samples_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        file_name = f"{data_set_name}_samples_{timestamp}.txt"
+        file_to_write = os.path.join(samples_dir, file_name)
+        
+        with open(file_to_write, "w", encoding="utf-8") as f:
+            f.write(f"Settings: Dataset={data_set_name}, Epochs={NUM_EPOCHS}, Steps per Epoch={STEPS_PER_EPOCH}, Sampling Steps={SAMPLING_STEPS}\n\n\n")
+        
 
     print(f"Start training: Total {NUM_EPOCHS} epochs, {STEPS_PER_EPOCH} steps per epoch")
     for epoch in range(NUM_EPOCHS):
@@ -95,11 +114,6 @@ if __name__ == "__main__":
             x = tokenized_batch['input_ids'].to(device)
             attention_mask = tokenized_batch['attention_mask'].to(device)
 
-            # print(f"x shape ({BATCH_SIZE, MAX_SEQ_LEN_FOR_BATCH}) : {x.shape}")
-            # print(x[0])
-            # print(f"attention_mask shape ({BATCH_SIZE, MAX_SEQ_LEN_FOR_BATCH}) : {attention_mask.shape}")
-            # print(attention_mask[0])
-
             ce_loss = mdlm(x, attention_mask)
             optimizer.zero_grad()
             ce_loss.backward()
@@ -114,7 +128,8 @@ if __name__ == "__main__":
         avg_epoch_train_loss = total_train_loss / (step+1)
         print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} training ends : {avg_epoch_train_loss:.4f}")
         if WANDB_LOG:
-            wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})
+            wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})            
+            
 
         # Validation
         print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation begins.")
@@ -156,6 +171,25 @@ if __name__ == "__main__":
             print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation ends : {avg_epoch_val_loss:.4f}")
             if WANDB_LOG:
                 wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
+        
+        
+            # Sampling
+            print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} sampling begins.")
+            sampled_token_seq = mdlm.sample(NUM_SAMPLES, SAMPLING_STEPS, device=device)
+            sampled_texts = tokenizer.batch_decode(sampled_token_seq, skip_special_tokens=False)
+        
+            if SAVE_SAMPLE_AS_FILE:                
+                try:
+                    with open(file_to_write, "a", encoding="utf-8") as f:
+                        f.write(f"--- Epoch {epoch+1} Samples ---\n")
+                        for i, text in enumerate(sampled_texts):
+                            f.write(f"Sample {i+1} : {text}\n")  # Create or clear the file
+                        f.write("\n")
+                        f.flush()
+                except Exception as e:
+                    print(f"Error saving samples: {e}")
+                    
+            print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} sampling finished.")
 
 
     print(f"End of the training: Total {NUM_EPOCHS} epochs.")
