@@ -13,6 +13,7 @@ NUM_EPOCHS = 4
 STEPS_PER_EPOCH = 10
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
+WANDB_LOG = True
 
 if __name__ == "__main__":    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,17 +49,18 @@ if __name__ == "__main__":
     mdlm = MDLM(model, tokenizer).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # # Loggin on wandb
-    # wandb.init(
-    #     project=f"min_mdlm_{data_set_name}",
-    #     config={
-    #         "learning_rate": LEARNING_RATE,
-    #         "architecture": "DiT_Llama",
-    #         "dataset": data_set_name,
-    #         "epochs": NUM_EPOCHS,
-    #         "batch_size": BATCH_SIZE,
-    #     }
-    # )
+    # Loggin on wandb
+    if WANDB_LOG:
+        wandb.init(
+            project=f"min_mdlm_{data_set_name}",
+            config={
+                "learning_rate": LEARNING_RATE,
+                "architecture": "DiT_Llama",
+                "dataset": data_set_name,
+                "epochs": NUM_EPOCHS,
+                "batch_size": BATCH_SIZE,
+            }
+        )
 
     print(f"Start training: Total {NUM_EPOCHS} epochs, {STEPS_PER_EPOCH} steps per epoch")
     for epoch in range(NUM_EPOCHS):
@@ -104,13 +106,15 @@ if __name__ == "__main__":
             optimizer.step()
             # pbar.set_description(f"CE Loss: {ce_loss.item():.4f}")
 
-            # wandb.log({"train_step_ce_loss": ce_loss.item()})
+            if WANDB_LOG:
+                wandb.log({"train_step_ce_loss": ce_loss.item()})
             total_train_loss += ce_loss.item()
             pbar_train.set_description(f"Avg Train Loss: {total_train_loss / (step+1):.4f}")
 
         avg_epoch_train_loss = total_train_loss / (step+1)
         print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} training ends : {avg_epoch_train_loss:.4f}")
-        # wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})
+        if WANDB_LOG:
+            wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})
 
         # Validation
         print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation begins.")
@@ -128,30 +132,32 @@ if __name__ == "__main__":
                     validation_iterator = validation_data.iter(batch_size=BATCH_SIZE)
                     break
             
-            val_text_list = [text for text in val_batch_raw['text'] if text is not None]
-            if not val_text_list:
-                print("Skipping empty batch (all samples were None)")
-                continue
-            
-            val_tokenized_batch = tokenizer(
-                val_text_list,
-                padding='max_length',
-                truncation=True,
-                max_length=MAX_SEQ_LEN_FOR_BATCH,
-                return_tensors='pt',
-            )
+                val_text_list = [text for text in val_batch_raw['text'] if text is not None]
+                if not val_text_list:
+                    print("Skipping empty batch (all samples were None)")
+                    continue
+                
+                val_tokenized_batch = tokenizer(
+                    val_text_list,
+                    padding='max_length',
+                    truncation=True,
+                    max_length=MAX_SEQ_LEN_FOR_BATCH,
+                    return_tensors='pt',
+                )
 
-            val_x = val_tokenized_batch['input_ids'].to(device)
-            val_attention_mask = val_tokenized_batch['attention_mask'].to(device)
+                val_x = val_tokenized_batch['input_ids'].to(device)
+                val_attention_mask = val_tokenized_batch['attention_mask'].to(device)
 
-            val_ce_loss = mdlm(val_x, val_attention_mask)
-            total_val_loss += val_ce_loss.item()
-            pbar_val.set_description(f"Avg Val Loss: {total_val_loss / (val_step+1):.4f}")
+                val_ce_loss = mdlm(val_x, val_attention_mask)
+                total_val_loss += val_ce_loss.item()
+                pbar_val.set_description(f"Avg Val Loss: {total_val_loss / (val_step+1):.4f}")
 
             avg_epoch_val_loss = total_val_loss / (val_step+1)
             print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation ends : {avg_epoch_val_loss:.4f}")
-            # wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
+            if WANDB_LOG:
+                wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
 
 
     print(f"End of the training: Total {NUM_EPOCHS} epochs.")
-    # wandb.finish()
+    if WANDB_LOG:
+        wandb.finish()
