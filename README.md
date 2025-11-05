@@ -8,7 +8,9 @@
         - [x] $`\alpha_t'`$ weight implementation
     - [ ] Sampling
         - [x] `mdlm.sample` implementation
-        - [ ] main loop sampling logic implementation
+        - [x] main loop sampling logic implementation
+        - [x] CPU test
+        - [ ] Compare with the author's code.
 - [ ] Test
     - [ ] Wikipedia dataset generation test
     - [ ] Sudoku problem sovling test
