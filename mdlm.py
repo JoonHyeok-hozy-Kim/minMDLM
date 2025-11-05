@@ -20,16 +20,11 @@ class MDLM(nn.Module):
     batch_size, seq_len = x.shape
 
     # Sample time
-    t = torch.rand((batch_size,)).to(x.device)
+    t = torch.rand((batch_size,), device=x.device)
 
     # Draw latent z_t from the Categorical distribution and update attention_mask
-    z_t, diffusion_mask, alpha_t = self.add_noise(x, t, attention_mask, self._cosine_schedule)
-    
-    # Get loss weight : alpha_t_prime / (1-alpha_t)
-    alpha_t_prime = None
-    one_minus_alpha_t = 1 - alpha_t
-    one_minus_alpha_t = torch.clamp(one_minus_alpha_t, min=1e-9)  # Avoid zero-division
-    loss_weight = alpha_t_prime / one_minus_alpha_t
+    z_t, diffusion_mask, loss_weight = self.add_noise(x, t, attention_mask, "cosine")
+    loss_weight = loss_weight.detach() # Negative value
 
     # Get x_theta
     x_theta = self.model(z_t, t, attention_mask)
@@ -40,25 +35,17 @@ class MDLM(nn.Module):
     targets = x.clone()
     targets[~diffusion_mask] = self.tokenizer.pad_token_id
     targets_flat = targets.view(-1) # (batch_size*max_seq_len, )
-    loss_per_token = self.loss_function(logits_flat, targets_flat)
+    loss_per_token = self.loss_function(logits_flat, targets_flat) 
+    loss_per_token *= (-1)  # nn.CELoss gives negative log likelihood but what we need is log<x_theta, x>
     loss_per_sample = loss_per_token.view(batch_size, seq_len).sum(dim=1)  # (batch_size, )  
-    batchwise_loss = (loss_weight * loss_per_sample).mean()
-    print(batchwise_loss.shape)
+    batchwise_loss = (loss_weight * loss_per_sample).mean() # Positive value
+    # print(batchwise_loss.shape)
 
     return batchwise_loss
-  
-
-  def _cosine_schedule(self, t):
-    # assert 0 <= t <= 1
-    # if t == 1:  # cos(0) -> -log(1) -> 0
-    #   return math.inf
-    # elif t == 0:  # cos(2/pi) -> -log(0) -> inf
-    #   return 0
-    return -torch.log(torch.cos(math.pi/2 * (t)))
 
   def add_noise(self, x, t, attention_mask, noise_schedule):
     # Mask token with prob. 1-alpha_t
-    alpha_t = torch.exp(-noise_schedule(t)).to(x.device)  # (batch_size, )
+    alpha_t, loss_weight = self.get_weights(t, noise_schedule)
     alpha_t_unsqueezed = alpha_t.unsqueeze(1)  # (batch_size, 1)
     # print(f"alpha_t.shape : {alpha_t.shape}")
 
@@ -74,7 +61,21 @@ class MDLM(nn.Module):
     noised_x = x.clone()
     noised_x[diffusion_mask] = self.tokenizer.mask_token_id
 
-    return noised_x, diffusion_mask, alpha_t
+    return noised_x, diffusion_mask, loss_weight
+  
+  def get_weights(self, t, noise_schedule="cosine"):
+    if noise_schedule == "cosine":
+      alpha_t = torch.cos((math.pi/2) * t)
+      alpha_t_prime = -torch.sin((math.pi/2) * t) * (math.pi/2) # Negative value
+      alpha_t_prime = alpha_t_prime
+    else:
+      raise NotImplementedError(f"Noise schedule {noise_schedule} not implemented.")
+    
+    one_minus_alpha_t = 1 - alpha_t
+    one_minus_alpha_t = torch.clamp(one_minus_alpha_t, min=1e-9)  # Avoid zero-division
+    loss_weight = alpha_t_prime / one_minus_alpha_t # Negative value
+    
+    return alpha_t, loss_weight
 
   @torch.no_grad()
   def sample(self, z):
