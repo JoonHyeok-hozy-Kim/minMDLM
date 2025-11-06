@@ -12,7 +12,7 @@ from datetime import datetime
 # Hyperparameters for training
 BATCH_SIZE = 64
 NUM_EPOCHS = 10
-STEPS_PER_EPOCH = 10
+STEPS_PER_EPOCH = 1000
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
 WANDB_LOG = True
