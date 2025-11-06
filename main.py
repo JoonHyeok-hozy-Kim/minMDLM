@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 
 # Hyperparameters for training
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 NUM_EPOCHS = 10
 STEPS_PER_EPOCH = 10
 LEARNING_RATE = 5e-4
