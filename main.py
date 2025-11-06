@@ -10,12 +10,12 @@ import os
 from datetime import datetime
 
 # Hyperparameters for training
-BATCH_SIZE = 4
+BATCH_SIZE = 64
 NUM_EPOCHS = 10
 STEPS_PER_EPOCH = 10
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
-WANDB_LOG = False
+WANDB_LOG = True
 
 # Hyperparemeters for sampling
 NUM_SAMPLES = 5
