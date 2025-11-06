@@ -9,6 +9,7 @@
 #SBATCH --time=4:00:00
 #SBATCH --output=/dev/null
 #SBATCH --error=/dev/null
+#SBATCH --output=/home/hozy/research/gen_ai/min_mdlm/run_main_%j.log
 
 cd ../
 mkdir -p "./logs"
