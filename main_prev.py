@@ -10,8 +10,8 @@ import os
 from datetime import datetime
 
 # Hyperparameters for training
-BATCH_SIZE = 32
-NUM_EPOCHS = 5
+BATCH_SIZE = 1
+NUM_EPOCHS = 1
 STEPS_PER_EPOCH = 10
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
@@ -21,16 +21,6 @@ WANDB_LOG = False
 NUM_SAMPLES = 1
 SAMPLING_STEPS = 200
 SAVE_SAMPLE_AS_FILE = False
-
-def custom_tokenizer(data_set):
-    return tokenizer(
-        data_set['text'],
-        truncation=True,
-        max_length=MAX_SEQ_LEN_FOR_BATCH,
-        return_overflowing_tokens=True,
-        stride=256,
-        padding='max_length',
-    )
 
 if __name__ == "__main__":    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,18 +33,13 @@ if __name__ == "__main__":
     dataset = load_dataset("wikimedia/wikipedia", "20231101.en", streaming=True)
     chunk_data = dataset["train"].shuffle(buffer_size=10_000, seed=42)
     data_set_name = chunk_data.info.dataset_name
-    
-    # Tokenize dataset
-    tokenized_dataset = chunk_data.map(
-        custom_tokenizer,
-        batched=True,
-        remove_columns=['text', 'id', 'url', 'title'],
-    )
 
     # Split data
     N_VALIDATION_SAMPLES = 10_000 # Validation set size
-    validation_data = tokenized_dataset.take(N_VALIDATION_SAMPLES)
-    train_data = tokenized_dataset.skip(N_VALIDATION_SAMPLES)
+    validation_data = chunk_data.take(N_VALIDATION_SAMPLES)
+    train_data = chunk_data.skip(N_VALIDATION_SAMPLES)
+    # print(f"Train Dataset : {train_data}")
+    # print(f"Validation Dataset : {validation_data}")
 
     # Generate train data iterator for the training.
     train_iterator = train_data.iter(batch_size=BATCH_SIZE)
@@ -105,19 +90,29 @@ if __name__ == "__main__":
         pbar_train = tqdm(range(STEPS_PER_EPOCH))
         for step in pbar_train:
             try:
-                batch_tokens = next(train_iterator)
+                batch_raw = next(train_iterator)
 
             except StopIteration:
                 print("Dataset stream is over. Reset the iterator.")
                 train_iterator = train_data.iter(batch_size=BATCH_SIZE)
                 break
 
-            x = torch.tensor(batch_tokens['input_ids'], device=device)
-            attention_mask = torch.tensor(batch_tokens['attention_mask'], device=device)
-            
-            if x.ndim == 3 and BATCH_SIZE == 1:
-                x = x.squeeze(0)
-                attention_mask = attention_mask.squeeze(0)
+            text_list = [text for text in batch_raw['text'] if text is not None]
+            if not text_list:
+                print("Skipping empty batch (all samples were None)")
+                continue
+
+            # Tokenize the data
+            tokenized_batch = tokenizer(
+                text_list, # Flatten the list of lists : First str items only!
+                padding='max_length', # Pad emptyslots! (Distinguish MASK and Empty)
+                truncation=True,      # Trunc if longer than max_length
+                max_length=MAX_SEQ_LEN_FOR_BATCH,
+                return_tensors='pt',  # pytorch tensor!
+            )
+
+            x = tokenized_batch['input_ids'].to(device)
+            attention_mask = tokenized_batch['attention_mask'].to(device)
 
             ce_loss = mdlm(x, attention_mask)
             optimizer.zero_grad()
@@ -145,19 +140,28 @@ if __name__ == "__main__":
             pbar_val = tqdm(range(STEPS_PER_EPOCH))
             for val_step in pbar_val:
                 try:
-                    val_batch_tokens = next(validation_iterator)
+                    val_batch_raw = next(validation_iterator)
 
                 except StopIteration:
                     print("Dataset stream is over. Reset the iterator.")
                     validation_iterator = validation_data.iter(batch_size=BATCH_SIZE)
                     break
-
-                val_x = torch.tensor(val_batch_tokens['input_ids'], device=device)
-                val_attention_mask = torch.tensor(val_batch_tokens['attention_mask'], device=device)
+            
+                val_text_list = [text for text in val_batch_raw['text'] if text is not None]
+                if not val_text_list:
+                    print("Skipping empty batch (all samples were None)")
+                    continue
                 
-                if val_x.ndim == 3 and BATCH_SIZE == 1:
-                    val_x = val_x.squeeze(0)
-                    val_attention_mask = val_attention_mask.squeeze(0)
+                val_tokenized_batch = tokenizer(
+                    val_text_list,
+                    padding='max_length',
+                    truncation=True,
+                    max_length=MAX_SEQ_LEN_FOR_BATCH,
+                    return_tensors='pt',
+                )
+
+                val_x = val_tokenized_batch['input_ids'].to(device)
+                val_attention_mask = val_tokenized_batch['attention_mask'].to(device)
 
                 val_ce_loss = mdlm(val_x, val_attention_mask)
                 total_val_loss += val_ce_loss.item()
