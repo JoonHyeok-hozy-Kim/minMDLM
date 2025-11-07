@@ -11,15 +11,15 @@ from datetime import datetime
 
 # Hyperparameters for training
 BATCH_SIZE = 64
-NUM_EPOCHS = 10
-STEPS_PER_EPOCH = 1000
+NUM_EPOCHS = 20
+STEPS_PER_EPOCH = 100
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
 WANDB_LOG = True
 
 # Hyperparemeters for sampling
-NUM_SAMPLES = 5
-SAMPLING_STEPS = 100
+NUM_SAMPLES = 1
+SAMPLING_STEPS = 200
 SAVE_SAMPLE_AS_FILE = True
 
 if __name__ == "__main__":    
@@ -183,7 +183,7 @@ if __name__ == "__main__":
                     with open(file_to_write, "a", encoding="utf-8") as f:
                         f.write(f"--- Epoch {epoch+1} Samples ---\n")
                         for i, text in enumerate(sampled_texts):
-                            f.write(f"Sample {i+1} : {text}\n")  # Create or clear the file
+                            f.write(f"[Sample {i+1}]\n{text}\n")  # Create or clear the file
                         f.write("\n")
                         f.flush()
                 except Exception as e:
