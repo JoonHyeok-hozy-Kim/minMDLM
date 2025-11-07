@@ -11,16 +11,16 @@ from datetime import datetime
 
 # Hyperparameters for training
 BATCH_SIZE = 32
-NUM_EPOCHS = 5
-STEPS_PER_EPOCH = 10
+NUM_EPOCHS = 10
+STEPS_PER_EPOCH = 100
 LEARNING_RATE = 5e-4
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
-WANDB_LOG = False
+WANDB_LOG = True
 
 # Hyperparemeters for sampling
 NUM_SAMPLES = 1
 SAMPLING_STEPS = 200
-SAVE_SAMPLE_AS_FILE = False
+SAVE_SAMPLE_AS_FILE = True
 
 def custom_tokenizer(data_set):
     return tokenizer(
