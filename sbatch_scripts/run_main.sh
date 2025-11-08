@@ -29,6 +29,8 @@ source ./venv/bin/activate
 echo "[DEBUG] Python check:"
 python --version
 echo "==================================="
+echo "Running main.py starts"
+date
 
 python -m main >> "$OUTPUT_FILE" 2>&1
 
