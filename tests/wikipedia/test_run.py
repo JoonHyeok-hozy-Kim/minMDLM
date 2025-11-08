@@ -8,6 +8,7 @@ from dit import DiT_Llama
 from mdlm import MDLM
 import os
 from datetime import datetime
+import math
 
 # Hyperparameters for training
 BATCH_SIZE = 64
@@ -16,6 +17,9 @@ STEPS_PER_EPOCH = 1000
 LEARNING_RATE = 1e-5
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
 WANDB_LOG = True
+
+# Hyperparameters for validation
+N_VALIDATION_SAMPLES = 10_000 # Validation set size
 
 # Hyperparemeters for sampling
 NUM_SAMPLES = 1
@@ -48,9 +52,8 @@ def run_wikipedia_training():
         remove_columns=['text', 'id', 'url', 'title'],
     )
 
-    # Split data
-    N_VALIDATION_SAMPLES = 10_000 # Validation set size
-    validation_step_cnt = N_VALIDATION_SAMPLES // BATCH_SIZE
+    # Split data into train and validation sets
+    validation_step_cnt = math.ceil(N_VALIDATION_SAMPLES // BATCH_SIZE)
     validation_data = tokenized_dataset.take(N_VALIDATION_SAMPLES)
     train_data = tokenized_dataset.skip(N_VALIDATION_SAMPLES)
 
@@ -100,6 +103,8 @@ def run_wikipedia_training():
         print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS} training begins.")
         mdlm.train()
         total_train_loss = 0.0
+        t_max_epoch = 0.0
+        t_max_step = 0.0
         pbar_train = tqdm(range(STEPS_PER_EPOCH))
         for step in pbar_train:
             try:
@@ -117,21 +122,28 @@ def run_wikipedia_training():
                 x = x.squeeze(0)
                 attention_mask = attention_mask.squeeze(0)
 
-            ce_loss = mdlm(x, attention_mask)
+            # Draw random time step t
+            t = torch.rand((BATCH_SIZE,), device=x.device)
+            t_max_step = t.max().item() if t.max().item() > t_max_step else t_max_step
+            
+            ce_loss = mdlm(x, t, attention_mask)
             optimizer.zero_grad()
             ce_loss.backward()
             optimizer.step()
             # pbar.set_description(f"CE Loss: {ce_loss.item():.4f}")
 
-            if WANDB_LOG:
+            if WANDB_LOG and step % 10 == 0:
                 wandb.log({"train_step_ce_loss": ce_loss.item()})
+                wandb.log({"max t": t_max_step})
             total_train_loss += ce_loss.item()
             pbar_train.set_description(f"Avg Train Loss: {total_train_loss / (step+1):.4f}")
 
+        t_max_epoch = t_max_step if t_max_step > t_max_epoch else t_max_epoch
         avg_epoch_train_loss = total_train_loss / (step+1)
-        print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} training ends : {avg_epoch_train_loss:.4f}")
+        print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} training ends : {avg_epoch_train_loss:.4f}, max t : {t_max_epoch:.4f}")
         if WANDB_LOG:
-            wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})            
+            wandb.log({"avg_epoch_train_loss": avg_epoch_train_loss, "epoch": epoch+1})           
+            wandb.log({"epoch_max_t": t_max_epoch, "epoch": epoch+1})          
             
 
         # Validation
@@ -140,6 +152,8 @@ def run_wikipedia_training():
         total_val_loss = 0.0
 
         with torch.no_grad():
+            # Reset validation iterator
+            validation_iterator = validation_data.iter(batch_size=BATCH_SIZE)
             pbar_val = tqdm(range(validation_step_cnt))
             for val_step in pbar_val:
                 try:
