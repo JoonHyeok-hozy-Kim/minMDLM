@@ -26,8 +26,6 @@ echo "==================================="
 echo "Attempting to activate venv"
 source ./venv/bin/activate
 
-echo "[DEBUG] Conda env check:"
-echo "CONDA_DEFAULT_ENV: $CONDA_DEFAULT_ENV"
 echo "[DEBUG] Python check:"
 python --version
 echo "==================================="
