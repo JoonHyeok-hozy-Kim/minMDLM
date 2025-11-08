@@ -171,7 +171,9 @@ def run_wikipedia_training():
                     val_x = val_x.squeeze(0)
                     val_attention_mask = val_attention_mask.squeeze(0)
 
-                val_ce_loss = mdlm(val_x, val_attention_mask)
+                val_t = torch.rand((BATCH_SIZE,), device=val_x.device)
+                
+                val_ce_loss = mdlm(val_x, val_t, val_attention_mask)
                 total_val_loss += val_ce_loss.item()
                 pbar_val.set_description(f"Avg Val Loss: {total_val_loss / (val_step+1):.4f}")
 
