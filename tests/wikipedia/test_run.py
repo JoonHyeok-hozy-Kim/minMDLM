@@ -10,19 +10,19 @@ import os
 from datetime import datetime
 
 # Hyperparameters for training
-BATCH_SIZE = 1
-NUM_EPOCHS = 1
-STEPS_PER_EPOCH = 10
-LEARNING_RATE = 5e-4
+BATCH_SIZE = 64
+NUM_EPOCHS = 10
+STEPS_PER_EPOCH = 1000
+LEARNING_RATE = 1e-5
 MAX_SEQ_LEN_FOR_BATCH = 1024 # Start with 1024
-WANDB_LOG = False
+WANDB_LOG = True
 
 # Hyperparemeters for sampling
 NUM_SAMPLES = 1
 SAMPLING_STEPS = 200
-SAVE_SAMPLE_AS_FILE = False
+SAVE_SAMPLE_AS_FILE = True
 
-if __name__ == "__main__":    
+def run_wikipedia_training():    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Get tokenizer
@@ -33,13 +33,26 @@ if __name__ == "__main__":
     dataset = load_dataset("wikimedia/wikipedia", "20231101.en", streaming=True)
     chunk_data = dataset["train"].shuffle(buffer_size=10_000, seed=42)
     data_set_name = chunk_data.info.dataset_name
+    
+    # Tokenize dataset
+    tokenized_dataset = chunk_data.map(
+        lambda example:  tokenizer(
+            example['text'],
+            truncation=True,
+            max_length=MAX_SEQ_LEN_FOR_BATCH,
+            return_overflowing_tokens=True,
+            stride=256,
+            padding='max_length',
+        ),
+        batched=True,
+        remove_columns=['text', 'id', 'url', 'title'],
+    )
 
     # Split data
     N_VALIDATION_SAMPLES = 10_000 # Validation set size
-    validation_data = chunk_data.take(N_VALIDATION_SAMPLES)
-    train_data = chunk_data.skip(N_VALIDATION_SAMPLES)
-    # print(f"Train Dataset : {train_data}")
-    # print(f"Validation Dataset : {validation_data}")
+    validation_step_cnt = N_VALIDATION_SAMPLES // BATCH_SIZE
+    validation_data = tokenized_dataset.take(N_VALIDATION_SAMPLES)
+    train_data = tokenized_dataset.skip(N_VALIDATION_SAMPLES)
 
     # Generate train data iterator for the training.
     train_iterator = train_data.iter(batch_size=BATCH_SIZE)
@@ -90,29 +103,19 @@ if __name__ == "__main__":
         pbar_train = tqdm(range(STEPS_PER_EPOCH))
         for step in pbar_train:
             try:
-                batch_raw = next(train_iterator)
+                batch_tokens = next(train_iterator)
 
             except StopIteration:
-                print("Dataset stream is over. Reset the iterator.")
+                print("Test dataset stream is over. Reset the iterator.")
                 train_iterator = train_data.iter(batch_size=BATCH_SIZE)
                 break
 
-            text_list = [text for text in batch_raw['text'] if text is not None]
-            if not text_list:
-                print("Skipping empty batch (all samples were None)")
-                continue
-
-            # Tokenize the data
-            tokenized_batch = tokenizer(
-                text_list, # Flatten the list of lists : First str items only!
-                padding='max_length', # Pad emptyslots! (Distinguish MASK and Empty)
-                truncation=True,      # Trunc if longer than max_length
-                max_length=MAX_SEQ_LEN_FOR_BATCH,
-                return_tensors='pt',  # pytorch tensor!
-            )
-
-            x = tokenized_batch['input_ids'].to(device)
-            attention_mask = tokenized_batch['attention_mask'].to(device)
+            x = torch.tensor(batch_tokens['input_ids'], device=device)
+            attention_mask = torch.tensor(batch_tokens['attention_mask'], device=device)
+            
+            if x.ndim == 3 and BATCH_SIZE == 1:
+                x = x.squeeze(0)
+                attention_mask = attention_mask.squeeze(0)
 
             ce_loss = mdlm(x, attention_mask)
             optimizer.zero_grad()
@@ -137,42 +140,34 @@ if __name__ == "__main__":
         total_val_loss = 0.0
 
         with torch.no_grad():
-            pbar_val = tqdm(range(STEPS_PER_EPOCH))
+            pbar_val = tqdm(range(validation_step_cnt))
             for val_step in pbar_val:
                 try:
-                    val_batch_raw = next(validation_iterator)
+                    val_batch_tokens = next(validation_iterator)
 
                 except StopIteration:
-                    print("Dataset stream is over. Reset the iterator.")
+                    print("Valiation dataset stream is over. Reset the iterator.")
                     validation_iterator = validation_data.iter(batch_size=BATCH_SIZE)
                     break
-            
-                val_text_list = [text for text in val_batch_raw['text'] if text is not None]
-                if not val_text_list:
-                    print("Skipping empty batch (all samples were None)")
-                    continue
-                
-                val_tokenized_batch = tokenizer(
-                    val_text_list,
-                    padding='max_length',
-                    truncation=True,
-                    max_length=MAX_SEQ_LEN_FOR_BATCH,
-                    return_tensors='pt',
-                )
 
-                val_x = val_tokenized_batch['input_ids'].to(device)
-                val_attention_mask = val_tokenized_batch['attention_mask'].to(device)
+                val_x = torch.tensor(val_batch_tokens['input_ids'], device=device)
+                val_attention_mask = torch.tensor(val_batch_tokens['attention_mask'], device=device)
+                
+                if val_x.ndim == 3 and BATCH_SIZE == 1:
+                    val_x = val_x.squeeze(0)
+                    val_attention_mask = val_attention_mask.squeeze(0)
 
                 val_ce_loss = mdlm(val_x, val_attention_mask)
                 total_val_loss += val_ce_loss.item()
                 pbar_val.set_description(f"Avg Val Loss: {total_val_loss / (val_step+1):.4f}")
 
-            avg_epoch_val_loss = total_val_loss / (val_step+1)
-            print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation ends : {avg_epoch_val_loss:.4f}")
-            if WANDB_LOG:
-                wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
+        avg_epoch_val_loss = total_val_loss / (val_step+1)
+        print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} validation ends : {avg_epoch_val_loss:.4f}")
+        if WANDB_LOG:
+            wandb.log({"avg_epoch_val_loss": avg_epoch_val_loss, "epoch": epoch+1})
         
         
+        with torch.no_grad():
             # Sampling
             print(f"--- Epoch {epoch+1}/{NUM_EPOCHS} sampling begins.")
             sampled_token_seq = mdlm.sample(NUM_SAMPLES, SAMPLING_STEPS, device=device)
