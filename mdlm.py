@@ -18,11 +18,8 @@ class MDLM(nn.Module):
       reduction='none'  # To weight with alpha_t_prime / (1-alpha_t)
     )
 
-  def forward(self, x, attention_mask):
+  def forward(self, x, t, attention_mask):
     batch_size, seq_len = x.shape
-
-    # Sample time
-    t = torch.rand((batch_size,), device=x.device)
 
     # Draw latent z_t from the Categorical distribution and update attention_mask
     z_t, diffusion_mask, loss_weight = self.add_noise(x, t, attention_mask, "cosine")
