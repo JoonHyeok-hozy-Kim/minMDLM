@@ -19,7 +19,7 @@ class SudokuGrid:
         row, col = coordinates[index]
         box_index = (row // 3) * 3 + (col // 3)
 
-        for num in random.sample(list(map(str, range(1, 10))), 9):
+        for num in random.sample(range(1, 10), 9):
             if (num not in row_sets[row] and
                 num not in col_sets[col] and
                 num not in box_sets[box_index]):
@@ -60,7 +60,7 @@ class SudokuGrid:
             random.shuffle(coordinates)
             new_grid = [None] * (self.grid_size * self.grid_size)
             if self._generate_one_grid(coordinates, new_grid):
-                new_grid_str_list.append(''.join(new_grid))
+                new_grid_str_list.append(''.join(map(str, new_grid)))
                 cnt_created += 1
                 
         return new_grid_str_list
