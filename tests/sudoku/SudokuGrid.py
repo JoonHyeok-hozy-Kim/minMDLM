@@ -37,7 +37,7 @@ class SudokuGrid:
                 col_sets[col].add(num)
                 box_sets[box_index].add(num)
                 
-                if do_debug and index % 20 == 0:
+                if do_debug and index % 50 == 0:
                     self.print_grid(curr_grid)
 
                 if self._recursive_fill(coordinates, row_sets, col_sets, box_sets, curr_grid, index + 1, do_debug):
