@@ -12,7 +12,15 @@ class SudokuGrid:
         
         self.grids_list.extend(validate_grids)
     
-    def _recursive_fill(self, coordinates, row_sets, col_sets, box_sets, curr_grid, index=0):
+    def print_grid(self, grid):
+        print("-----------------------")
+        for i, val in enumerate(grid):
+            if i % self.grid_size == 0:
+                print()
+            print(f"{val} ", end="")
+        print("\n-----------------------")
+    
+    def _recursive_fill(self, coordinates, row_sets, col_sets, box_sets, curr_grid, index=0, do_debug=False):
         if index >= len(coordinates):
             return True
 
@@ -28,29 +36,32 @@ class SudokuGrid:
                 row_sets[row].add(num)
                 col_sets[col].add(num)
                 box_sets[box_index].add(num)
+                
+                if do_debug:
+                    self.print_grid(curr_grid)
 
-                if self._recursive_fill(coordinates, row_sets, col_sets, box_sets, curr_grid, index + 1):
+                if self._recursive_fill(coordinates, row_sets, col_sets, box_sets, curr_grid, index + 1, do_debug):
                     return True
 
                 # Backtrack
-                curr_grid[row * self.grid_size + col] = None
+                curr_grid[row * self.grid_size + col] = 0
                 row_sets[row].remove(num)
                 col_sets[col].remove(num)
                 box_sets[box_index].remove(num)
 
         return False
     
-    def _generate_one_grid(self, coordinates, new_grid):
+    def _generate_one_grid(self, coordinates, new_grid, do_debug=False):
         row_sets = [set() for _ in range(self.grid_size)]
         col_sets = [set() for _ in range(self.grid_size)]
         box_sets = [set() for _ in range(self.grid_size)]        
         
-        if self._recursive_fill(coordinates, row_sets, col_sets, box_sets, new_grid):
+        if self._recursive_fill(coordinates, row_sets, col_sets, box_sets, new_grid, 0, do_debug):
             return True        
         return False
     
     
-    def create_sudoku_grids(self, num_grids):
+    def create_sudoku_grids(self, num_grids, do_debug=False):
         new_grid_str_list = []
         coordinates = [(r, c) for r in range(self.grid_size) for c in range(self.grid_size)]
         
@@ -58,8 +69,8 @@ class SudokuGrid:
         
         while cnt_created < num_grids:
             random.shuffle(coordinates)
-            new_grid = [None] * (self.grid_size * self.grid_size)
-            if self._generate_one_grid(coordinates, new_grid):
+            new_grid = [0] * (self.grid_size * self.grid_size)
+            if self._generate_one_grid(coordinates, new_grid, do_debug):
                 new_grid_str_list.append(''.join(map(str, new_grid)))
                 cnt_created += 1
                 
@@ -109,7 +120,7 @@ class SudokuGrid:
 
 if __name__ == "__main__":
     S = SudokuGrid()
-    new_grids = S.create_sudoku_grids(1)
+    new_grids = S.create_sudoku_grids(1, True)
     # print(new_grid)
     
     grids_list = []
