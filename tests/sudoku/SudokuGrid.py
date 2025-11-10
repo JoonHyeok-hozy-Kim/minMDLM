@@ -63,7 +63,7 @@ class SudokuGrid:
                 new_grid_str_list.append(''.join(new_grid))
                 cnt_created += 1
                 
-        return new_grids
+        return new_grid_str_list
         
     
     def validate_grid(self, grid_str, display=False):
