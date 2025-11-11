@@ -142,4 +142,4 @@ def read_sudoku_file(file_name):
 
 if __name__ == '__main__':
     # generate_sudoku(3)
-    generate_rare_sudoku_in_parallel_with_timeout(2, 1)
+    generate_rare_sudoku_in_parallel_with_timeout(100, 1)
