@@ -1,10 +1,13 @@
 import random
 import numpy as np
 
+SUDOKU_GRID_SEPARATOR = " "
+
 class SudokuGrid:
     def __init__(self):
         self.grid_size = 9  # Standard Sudoku grid size is 9x9
         self.grids_list = []
+        self.separator = SUDOKU_GRID_SEPARATOR
     
     def feed_data(self, grid_str):          
         result = self._validate_grid(grid_str=grid_str, display=False, return_list=True)
@@ -16,10 +19,19 @@ class SudokuGrid:
     
     def print_grid(self, grid):
         print("-----------------------")
-        for i, val in enumerate(grid):
-            if i % self.grid_size == 0:
-                print()
-            print(f"{val} ", end="")
+        if isinstance(grid, str):
+            for i, val in enumerate(grid.split(self.separator)):
+                if i % self.grid_size == 0:
+                    print()
+                print(f"{val} ", end="")
+        elif isinstance(grid, list):
+            for i, val in enumerate(grid):
+                if i % self.grid_size == 0:
+                    print()
+                print(f"{val} ", end="")
+        else:
+            raise NotImplementedError(f"print_grid not implemented for the grid datatype: {type(grid)}")
+        
         print("\n-----------------------")
     
     def _recursive_fill(self, coordinates, row_sets, col_sets, box_sets, curr_grid, index=0, do_debug=False, shuffle_range=False):
@@ -146,9 +158,11 @@ class SudokuGrid:
     def create_sudoku_grids(self, num_grids, do_debug=False, shuffle_coord=False, shuffle_range=True, transform_cnt=0):
         new_grid_set = set(self.grids_list)
         coordinates = [(r, c) for r in range(self.grid_size) for c in range(self.grid_size)]        
-        cnt_created = 0        
+        created_cnt = 0        
+        duplicate_cnt = 0
+        invalid_cnt = 0
         
-        while cnt_created < num_grids:
+        while created_cnt < num_grids:
             if shuffle_coord:
                 random.shuffle(coordinates)
             new_grid = [0] * (self.grid_size * self.grid_size)
@@ -162,17 +176,20 @@ class SudokuGrid:
                 
                 # Duplicacy check
                 if new_grid_str in new_grid_set:
-                    print("Duplicate!")
+                    # print("Duplicate!")
+                    duplicate_cnt += 1
                     continue
                 
                 # Validity check
                 validity = self._validate_grid(grid_str=new_grid_str, display=False, return_list=False)
                 if isinstance(validity, bool) and not validity:
+                    invalid_cnt += 1
                     continue
                 
                 new_grid_set.add(new_grid_str)
-                cnt_created += 1
-                
+                created_cnt += 1
+        
+        print(f"Sudoku generation report. Created {created_cnt} grids. Duplicacy : {duplicate_cnt}, Invalidity : {invalid_cnt}")
         self.grids_list = list(new_grid_set)
         
     
@@ -185,7 +202,7 @@ class SudokuGrid:
         if display:
             print("-----------------------")
         
-        for i, val in enumerate(grid_str):
+        for i, val in enumerate(grid_str.split(self.separator)):
             row = i // self.grid_size
             col = i % self.grid_size
             box_index = (row // 3) * 3 + (col // 3)

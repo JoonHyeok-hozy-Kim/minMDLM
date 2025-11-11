@@ -27,8 +27,8 @@ def generate_sudoku(num_grids, transform_cnt=20):
                  
     try:
         with open(file_to_write, "a", encoding="utf-8") as f:
-            for i, grid_str in enumerate(S.grids_list):
-                f.write(grid_str)
+            for i, grid in enumerate(S.grids_list):
+                f.write(S.separator.join(grid))
                 f.write("\n")
                 
                 if i % 1000 == 0:
@@ -41,22 +41,22 @@ def generate_one_rare_worker(_):
     try:
         S_worker = SudokuGrid()
         
-        generated_list = S_worker.create_sudoku_grids(
+        S_worker.create_sudoku_grids(
             num_grids=1,
             shuffle_range=True, 
             transform_cnt=5,    
             shuffle_coord=True,
         )
         
-        if generated_list:
-            return generated_list[0] 
+        grid_str = S_worker.separator.join(S_worker.grids_list[0])
             
     except Exception as e:
         print(f"Worker Error: {e}")
-    return None
+        
+    return grid_str
 
 
-def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_timeout_min=30):
+def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_timeout_min=3):
     """
     
     Args:
@@ -73,7 +73,7 @@ def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_tim
     
     # Generate rare sudoku grids in parallel
     num_cores_str = os.environ.get("SLURM_CPUS_PER_TASK")
-    num_cores = int(num_cores_str)    
+    num_cores = int(num_cores_str) if num_cores_str else int(os.cpu_count())
     worker_timeout_sec = worker_timeout_min * 60
     print(f"Target: Generate {num_grids_goal} rare sudoku grids using {num_cores} cores.")
     print(f"Timeout: {worker_timeout_min} min")
@@ -91,10 +91,10 @@ def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_tim
             
             for res in async_results:
                 try:
-                    grid_str = res.get(timeout=worker_timeout_sec) 
+                    grid_str_separated = res.get(timeout=worker_timeout_sec) 
                     
-                    if grid_str and grid_str not in unique_grids_set:
-                        unique_grids_set.add(grid_str)
+                    if grid_str_separated and grid_str_separated not in unique_grids_set:
+                        unique_grids_set.add(grid_str_separated)
                     
                 except TimeoutError:
                     print(f"KILL: After {worker_timeout_min} min time out.")
@@ -102,16 +102,22 @@ def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_tim
                     print(f"Error unspecified : {e}")
                 
                 if len(unique_grids_set) >= num_grids_goal:
+                    print(f"Created {len(unique_grids_set)} grids. Terminate the pool.")
+                    pool.terminate()
                     break 
+            
+            print(f"Escape pool while loop.")
+            if len(unique_grids_set) >= num_grids_goal:
+                break 
 
     print(f"Total {len(unique_grids_set)} rare grid(s) created. ({datetime.now().strftime("%Y%m%d_%HM")})")
     
     print(f"Write on file: {file_to_write}")
     try:
         with open(file_to_write, "w", encoding="utf-8") as f:
-            for grid_str in unique_grids_set:
-                f.write(grid_str + "\n")
-                f.flush()
+            for grid_str_separated in unique_grids_set:
+                f.write(grid_str_separated)
+                f.write("\n")
     except Exception as e:
         print(f"Error during writing on file: {e}")
 
@@ -135,5 +141,5 @@ def read_sudoku_file(file_name):
 
 
 if __name__ == '__main__':
-    # generate_sudoku(1_000_000)
-    generate_rare_sudoku_in_parallel_with_timeout(100, 30)
+    # generate_sudoku(3)
+    generate_rare_sudoku_in_parallel_with_timeout(2, 1)
