@@ -56,13 +56,12 @@ def generate_one_rare_worker(_):
     return None
 
 
-def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_timeout_min=60):
+def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_timeout_min=30):
     """
-    타임아웃을 적용하여 '희귀한' 스도쿠 셋을 생성합니다.
     
     Args:
-        num_grids_goal (int): 최종 목표 스도쿠 개수 (예: 100)
-        worker_timeout (int): 작업자 1개가 멈출 수 있는 최대 시간 (초) (예: 60초)
+        num_grids_goal (int): 
+        worker_timeout_min (int): 
     """
     
     # Set file directory
@@ -74,8 +73,9 @@ def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_tim
     
     # Generate rare sudoku grids in parallel
     num_cores = os.cpu_count()
+    worker_timeout_sec = worker_timeout_min * 60
     print(f"Target: Generate {num_grids_goal} rare sudoku grids using {num_cores} cores.")
-    print(f"Timeout: {worker_timeout_min * 60} min")
+    print(f"Timeout: {worker_timeout_min} min")
     
     unique_grids_set = set() # Drop duplicates using set
     start_time = datetime.now().strftime("%Y%m%d_%HM")
@@ -90,20 +90,20 @@ def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_tim
             
             for res in async_results:
                 try:
-                    grid_str = res.get(timeout=worker_timeout_min) 
+                    grid_str = res.get(timeout=worker_timeout_sec) 
                     
                     if grid_str and grid_str not in unique_grids_set:
                         unique_grids_set.add(grid_str)
                     
                 except TimeoutError:
-                    print(f"KILL: After {worker_timeout_min} time out.")
+                    print(f"KILL: After {worker_timeout_min} min time out.")
                 except Exception as e:
                     print(f"Error unspecified : {e}")
                 
                 if len(unique_grids_set) >= num_grids_goal:
                     break 
 
-    print(f"Tota {len(unique_grids_set)} rare grid(s) created. ({datetime.now().strftime("%Y%m%d_%HM")})")
+    print(f"Total {len(unique_grids_set)} rare grid(s) created. ({datetime.now().strftime("%Y%m%d_%HM")})")
     
     print(f"Write on file: {file_to_write}")
     try:
@@ -135,4 +135,4 @@ def read_sudoku_file(file_name):
 
 if __name__ == '__main__':
     # generate_sudoku(1_000_000)
-    generate_rare_sudoku_in_parallel_with_timeout(100, 60)
+    generate_rare_sudoku_in_parallel_with_timeout(100, 30)

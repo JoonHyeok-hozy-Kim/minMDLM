@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Slurm setup (No GPU required!)
+# Slurm setup (No GPU required! 100/256 CPU in Parallel)
 #SBATCH -p gu-compute
 #SBATCH -A gu-account
 #SBATCH --qos=gu-med
+#SBATCH --cpus-per-task=100
 #SBATCH --mem=32G
 #SBATCH --time=4:00:00
 #SBATCH --output=/dev/null
@@ -31,7 +32,7 @@ echo "==================================="
 echo "Running manage_sudoku_files.py starts"
 date
 
-python -m tests.sudoku.manage_sudoku_files >> "$OUTPUT_FILE" 2>&1
+python -m tests.sudoku.manage_sudoku_files
 
 echo "==================================="
 echo "Fin."
