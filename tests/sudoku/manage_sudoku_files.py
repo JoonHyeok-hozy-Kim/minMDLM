@@ -12,7 +12,7 @@ from config import PROJECT_ROOT
 from tests.sudoku.SudokuGrid import SudokuGrid
 
 
-def generate_sudoku(num_grids, transform_cnt=10):
+def generate_sudoku(num_grids, transform_cnt=20):
     # Setup for saving samples
     dataset_dir = os.path.join(PROJECT_ROOT, "tests", "sudoku", "dataset")
     os.makedirs(dataset_dir, exist_ok=True)
@@ -56,6 +56,6 @@ def read_sudoku_file(file_name):
 
 
 if __name__ == '__main__':
-    generate_sudoku(2_000_000)
+    generate_sudoku(1000)
     # sudoku_grid = read_sudoku_file("sudoku_dataset_size_10000_20251111_0029.txt")
     # print(len(sudoku_grid.grids_list))
