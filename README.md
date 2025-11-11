@@ -12,8 +12,11 @@
         - [x] CPU test
         - [ ] Compare with the author's code.
 - [ ] Test
-    - [ ] Wikipedia dataset generation test
+    - [x] Wikipedia dataset generation test
     - [ ] Sudoku problem sovling test
+        - [x] Implement sudoku generator
+        - [ ] Implement sudoku tokenizer
+        - [ ] Conduct test run
 
 
 
