@@ -9,6 +9,7 @@ from mdlm import MDLM
 import os
 from datetime import datetime
 import math
+from config import PROJECT_ROOT
 
 # Hyperparameters for training
 BATCH_SIZE = 64
@@ -87,7 +88,7 @@ def run_wikipedia_training():
     
     # Setup for saving samples
     if SAVE_SAMPLE_AS_FILE:
-        samples_dir = "samples"
+        samples_dir = os.path.join(PROJECT_ROOT, "samples")
         os.makedirs(samples_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         file_name = f"{data_set_name}_samples_{timestamp}.txt"
