@@ -28,7 +28,7 @@ source ./venv/bin/activate
 echo "[DEBUG] Python check:"
 python --version
 echo "==================================="
-echo "Running main.py starts"
+echo "Running manage_sudoku_files.py starts"
 date
 
 python -m tests.sudoku.manage_sudoku_files >> "$OUTPUT_FILE" 2>&1
