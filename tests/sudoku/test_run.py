@@ -1,5 +1,6 @@
 from datasets import load_dataset
 from SudokuGrid import SudokuGrid
+from manage_sudoku_files import read_sudoku_file
 
 # Hyperparameters for training
 BATCH_SIZE = 64
@@ -17,18 +18,17 @@ NUM_SAMPLES = 1
 SAMPLING_STEPS = 200
 SAVE_SAMPLE_AS_FILE = True
 
-def run_sudoku_training():
-    dataset = load_dataset(
-        'text',
-        data_files={'test': 'tests/sudoku/dataset/dev_test_set.csv',},
-        # header=False,
-        # column_names=['solution_string'],
-    )
-    
-    sudoku_grid = SudokuGrid()
-    sudoku_grid.feed_data(dataset['test']['text'])
-    print(f"Validated {len(grid_list)} Sudoku grids.")
-
+def run_sudoku_training():    
+    # S = read_sudoku_file("sudoku_dataset_size_10000_20251111_0029.txt")
+    # cnt = 0
+    # for grid in S.grids_list:
+    #     if cnt > 10:
+    #         break
+    #     S.print_grid(grid)
+    #     cnt += 1
+    S = SudokuGrid()
+    rare_grid = "347159628269483157581672493174568932692347815835291764753914286928736541416825379"
+    print(S._validate_grid(rare_grid))
 
 if __name__ == "__main__":
     run_sudoku_training()

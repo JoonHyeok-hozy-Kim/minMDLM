@@ -6,14 +6,13 @@ class SudokuGrid:
         self.grid_size = 9  # Standard Sudoku grid size is 9x9
         self.grids_list = []
     
-    def feed_data(self, grid_string_data):
-        for i, grid_str in enumerate(grid_string_data):            
-            result = self._validate_grid(grid_str=grid_str, display=False, return_list=True)
-            
-            if isinstance(result, list):
-                self.grids_list.append(result)
-            else:
-                print(f"Warning: Skipped invalid {i+1}-th grid : {grid_str}")
+    def feed_data(self, grid_str):          
+        result = self._validate_grid(grid_str=grid_str, display=False, return_list=True)
+        
+        if isinstance(result, list):
+            self.grids_list.append(result)
+        else:
+            print(f"Warning: Skipped invalid grid : {grid_str}")
     
     def print_grid(self, grid):
         print("-----------------------")
