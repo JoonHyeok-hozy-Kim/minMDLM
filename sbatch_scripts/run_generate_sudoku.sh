@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# Slurm setup
+# Slurm setup (No GPU required!)
 #SBATCH -p gu-compute
 #SBATCH -A gu-account
 #SBATCH --qos=gu-med
-#SBATCH --gres=gpu:1
 #SBATCH --mem=32G
 #SBATCH --time=4:00:00
 #SBATCH --output=/dev/null
