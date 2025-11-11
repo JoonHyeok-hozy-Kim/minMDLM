@@ -3,18 +3,10 @@ import sys
 from datetime import datetime
 
 
-# --- 이 코드를 import 전에 추가 ---
-# 1. 이 파일(generate_sudoku.py)의 절대 경로를 찾습니다.
 script_path = os.path.dirname(os.path.abspath(__file__))
-
-# 2. 이 파일의 부모의 부모 폴더 (즉, 프로젝트 루트)의 경로를 계산합니다.
-#    .../tests/sudoku  ->  .../tests  ->  .../min_mdlm
 project_root = os.path.abspath(os.path.join(script_path, "..", ".."))
-
-# 3. 파이썬 모듈 검색 경로(sys.path)의 맨 앞에 프로젝트 루트를 추가합니다.
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-# --- 여기까지 ---
 
 from config import PROJECT_ROOT
 from tests.sudoku.SudokuGrid import SudokuGrid
@@ -64,6 +56,6 @@ def read_sudoku_file(file_name):
 
 
 if __name__ == '__main__':
-    # generate_sudoku(10_000)
-    sudoku_grid = read_sudoku_file("sudoku_dataset_size_10000_20251111_0029.txt")
-    print(len(sudoku_grid.grids_list))
+    generate_sudoku(2_000_000)
+    # sudoku_grid = read_sudoku_file("sudoku_dataset_size_10000_20251111_0029.txt")
+    # print(len(sudoku_grid.grids_list))
