@@ -72,7 +72,8 @@ def generate_rare_sudoku_in_parallel_with_timeout(num_grids_goal=100, worker_tim
     file_to_write = os.path.join(dataset_dir, file_name)
     
     # Generate rare sudoku grids in parallel
-    num_cores = os.cpu_count()
+    num_cores_str = os.environ.get("SLURM_CPUS_PER_TASK")
+    num_cores = int(num_cores_str)    
     worker_timeout_sec = worker_timeout_min * 60
     print(f"Target: Generate {num_grids_goal} rare sudoku grids using {num_cores} cores.")
     print(f"Timeout: {worker_timeout_min} min")
