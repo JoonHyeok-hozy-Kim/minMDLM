@@ -56,6 +56,6 @@ def read_sudoku_file(file_name):
 
 
 if __name__ == '__main__':
-    generate_sudoku(1000)
+    generate_sudoku(1_000_000)
     # sudoku_grid = read_sudoku_file("sudoku_dataset_size_10000_20251111_0029.txt")
     # print(len(sudoku_grid.grids_list))
